@@ -1,0 +1,151 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pagerduty-sre-bot"
+version = "2.0.0"
+description = "PagerDuty Full-Feature SRE AI Assistant — powered by Groq LLM + PagerDuty REST API v2 + Events API v2"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Your Name", email = "you@example.com" }]
+keywords = [
+    "pagerduty",
+    "sre",
+    "incident-management",
+    "on-call",
+    "ai-assistant",
+    "chatbot",
+    "groq",
+    "devops",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: System Administrators",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: System :: Monitoring",
+    "Topic :: System :: Systems Administration",
+    "Typing :: Typed",
+]
+
+dependencies = [
+    "groq>=0.9.0",
+    "pagerduty>=2.0.0",
+    "python-dotenv>=1.0.0",
+    "pyyaml>=6.0",
+    "dateparser>=1.2.0",
+    "rich>=13.0.0",
+    "httpx>=0.27.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+    "pytest-asyncio>=0.21",
+    "ruff>=0.4.0",
+    "mypy>=1.10",
+    "types-PyYAML",
+    "types-dateparser",
+]
+
+[project.scripts]
+pd-sre-bot = "pagerduty_sre_bot.__main__:main"
+
+[project.urls]
+Homepage = "https://github.com/your-org/pagerduty-sre-bot"
+Documentation = "https://github.com/your-org/pagerduty-sre-bot#readme"
+Repository = "https://github.com/your-org/pagerduty-sre-bot"
+Issues = "https://github.com/your-org/pagerduty-sre-bot/issues"
+Changelog = "https://github.com/your-org/pagerduty-sre-bot/blob/main/CHANGELOG.md"
+
+[tool.setuptools.packages.find]
+include = ["pagerduty_sre_bot*"]
+
+# ─── Ruff (linter + formatter) ───────────────────────
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "F",    # pyflakes
+    "W",    # pycodestyle warnings
+    "I",    # isort
+    "N",    # pep8-naming
+    "UP",   # pyupgrade
+    "B",    # flake8-bugbear
+    "SIM",  # flake8-simplify
+    "T20",  # flake8-print (catch stray prints)
+    "RET",  # flake8-return
+    "PTH",  # flake8-use-pathlib
+]
+ignore = [
+    "T201",  # allow print() — we use it intentionally for CLI output
+    "E501",  # line length handled by formatter
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["pagerduty_sre_bot"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+# ─── Mypy (type checking) ────────────────────────────
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false          # too strict for a tool-heavy codebase
+check_untyped_defs = true
+ignore_missing_imports = true          # third-party stubs not always available
+
+[[tool.mypy.overrides]]
+module = "pagerduty_sre_bot.tools.*"
+disallow_untyped_defs = false
+
+# ─── Pytest ───────────────────────────────────────────
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_functions = ["test_*"]
+addopts = [
+    "-v",
+    "--tb=short",
+    "--strict-markers",
+]
+markers = [
+    "integration: marks tests that hit real PagerDuty API (deselect with '-m \"not integration\"')",
+    "slow: marks slow tests",
+]
+
+# ─── Coverage ─────────────────────────────────────────
+
+[tool.coverage.run]
+source = ["pagerduty_sre_bot"]
+omit = ["pagerduty_sre_bot/__main__.py"]
+
+[tool.coverage.report]
+show_missing = true
+skip_empty = true
+fail_under = 30       # raise as test coverage grows
+exclude_lines = [
+    "pragma: no cover",
+    "if __name__",
+    "raise ImportError",
+    "except ImportError",
+]

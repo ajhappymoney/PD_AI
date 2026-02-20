@@ -1,0 +1,11 @@
+.env
+__pycache__/
+*.pyc
+*.egg-info/
+dist/
+build/
+.venv/
+conversation_history.json
+config.yml
+postmortem_*.md
+.DS_Store
