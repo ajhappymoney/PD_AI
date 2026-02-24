@@ -7,8 +7,8 @@ import yaml
 
 DEFAULT_CONFIG: dict = {
     "model": {
-        "primary": "moonshotai/kimi-k2-instruct-0905",
-        "fallback": "llama-3.3-70b-versatile",
+        "primary": "claude-sonnet-4-20250514",
+        "fallback": "claude-haiku-4-5-20251001",
     },
     "defaults": {
         "time_window_hours": 24,

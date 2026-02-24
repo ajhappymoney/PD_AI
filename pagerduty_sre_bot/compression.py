@@ -2,7 +2,7 @@
 
 from typing import List
 
-from pagerduty_sre_bot.clients import groq_client
+from pagerduty_sre_bot.clients import anthropic_client
 from pagerduty_sre_bot.output import cprint
 
 
@@ -25,30 +25,25 @@ def compress_history(history: List[dict], config: dict) -> List[dict]:
     transcript = "\n".join(
         f"{m['role'].upper()}: {str(m.get('content', ''))[:500]}"
         for m in old_messages
-        if m.get("content") and m.get("role") in ("user", "assistant")
+        if m.get("content") and isinstance(m.get("content"), str) and m.get("role") in ("user", "assistant")
     )
 
     if not transcript.strip():
         return new_messages
 
     try:
-        resp = groq_client.chat.completions.create(
+        resp = anthropic_client.messages.create(
             model=fallback_model,
-            messages=[
-                {
-                    "role": "system",
-                    "content": (
-                        "You are a concise technical summariser. Summarise the following "
-                        "SRE/PagerDuty conversation into a brief bullet-point memory block "
-                        "covering: key incidents discussed, actions taken, decisions made, "
-                        "and any IDs or names that are important. Be terse — max 300 words."
-                    ),
-                },
-                {"role": "user", "content": transcript},
-            ],
+            system=(
+                "You are a concise technical summariser. Summarise the following "
+                "SRE/PagerDuty conversation into a brief bullet-point memory block "
+                "covering: key incidents discussed, actions taken, decisions made, "
+                "and any IDs or names that are important. Be terse — max 300 words."
+            ),
+            messages=[{"role": "user", "content": transcript}],
             max_tokens=400,
         )
-        summary_text = resp.choices[0].message.content or ""
+        summary_text = resp.content[0].text if resp.content else ""
         summary_message = {
             "role": "assistant",
             "content": f"[CONVERSATION SUMMARY — earlier context]\n{summary_text}",

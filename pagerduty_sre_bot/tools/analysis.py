@@ -6,16 +6,19 @@ from collections import Counter, defaultdict
 from pathlib import Path
 from datetime import timezone
 
-from pagerduty_sre_bot.clients import pd_client, groq_client
+from pagerduty_sre_bot.clients import pd_client, anthropic_client
 from pagerduty_sre_bot.helpers import safe_list, unwrap, MAX_RESULTS
 from pagerduty_sre_bot.time_utils import fmt_ts
 from pagerduty_sre_bot.output import cprint
-from pagerduty_sre_bot.tools.incidents import tool_get_incident, tool_get_incident_timeline, tool_get_incident_notes, tool_get_incident_alerts
+from pagerduty_sre_bot.tools.incidents import (
+    tool_get_incident, tool_get_incident_timeline,
+    tool_get_incident_notes, tool_get_incident_alerts,
+)
 from pagerduty_sre_bot.tools.notifications import tool_list_notifications
 from pagerduty_sre_bot.tools.analytics import tool_get_analytics_incidents
 
 
-def tool_generate_postmortem(args: dict, model_primary: str = "moonshotai/kimi-k2-instruct-0905") -> dict:
+def tool_generate_postmortem(args: dict, model_primary: str = "claude-sonnet-4-20250514") -> dict:
     """Auto-generate a structured postmortem for a resolved incident."""
     iid = args["incident_id"]
 
@@ -43,15 +46,13 @@ def tool_generate_postmortem(args: dict, model_primary: str = "moonshotai/kimi-k
     )
 
     try:
-        resp = groq_client.chat.completions.create(
+        resp = anthropic_client.messages.create(
             model=model_primary,
-            messages=[
-                {"role": "system", "content": prompt},
-                {"role": "user", "content": f"Incident data:\n\n{context[:12000]}"},
-            ],
+            system=prompt,
+            messages=[{"role": "user", "content": f"Incident data:\n\n{context[:12000]}"}],
             max_tokens=2000,
         )
-        text = resp.choices[0].message.content or ""
+        text = resp.content[0].text if resp.content else ""
     except Exception as e:
         return {"error": f"LLM postmortem generation failed: {e}"}
 

@@ -38,7 +38,7 @@ classifiers = [
 ]
 
 dependencies = [
-    "groq>=0.9.0",
+    "anthropic>=0.40.0",
     "pagerduty>=2.0.0",
     "python-dotenv>=1.0.0",
     "pyyaml>=6.0",

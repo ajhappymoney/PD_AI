@@ -1,0 +1,9 @@
+# Required
+ANTHROPIC_API_KEY=sk-ant-your_anthropic_api_key_here
+PAGERDUTY_API_KEY=your_pagerduty_api_key_here
+
+# Optional — email for PagerDuty write operations (From header)
+PAGERDUTY_EMAIL=you@example.com
+
+# Optional — enable dry-run via env var
+# DRY_RUN=true

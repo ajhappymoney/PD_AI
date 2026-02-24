@@ -1,28 +1,26 @@
-"""Groq, PagerDuty REST API v2, and Events API v2 client initialization."""
+"""Anthropic Claude, PagerDuty REST API v2, and Events API v2 client initialization."""
 
 import os
 import httpx
 from dotenv import load_dotenv
-from groq import Client
+from anthropic import Anthropic
 import pagerduty
 
 load_dotenv(".env")
 
-GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
 PAGERDUTY_API_KEY = os.getenv("PAGERDUTY_API_KEY")
 PAGERDUTY_EMAIL = os.getenv("PAGERDUTY_EMAIL", "")
 
-if not GROQ_API_KEY or not PAGERDUTY_API_KEY:
+if not ANTHROPIC_API_KEY or not PAGERDUTY_API_KEY:
     raise ValueError(
-        "Missing required API keys. Set GROQ_API_KEY and PAGERDUTY_API_KEY in .env"
+        "Missing required API keys. Set ANTHROPIC_API_KEY and PAGERDUTY_API_KEY in .env"
     )
 
-groq_client = Client(api_key=GROQ_API_KEY)
+anthropic_client = Anthropic(api_key=ANTHROPIC_API_KEY)
 pd_client = pagerduty.RestApiV2Client(PAGERDUTY_API_KEY, default_from=PAGERDUTY_EMAIL)
 
 # ── Events API v2 ────────────────────────────────────
-# The Events API uses a different base URL and auth model (routing_key per-request).
-# We use a plain httpx client for it.
 EVENTS_API_URL = "https://events.pagerduty.com/v2/enqueue"
 CHANGE_EVENTS_API_URL = "https://events.pagerduty.com/v2/change/enqueue"
 

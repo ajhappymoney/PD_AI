@@ -1,10 +1,10 @@
-"""LLM conversation loop: tool rounds (non-streaming) → streaming final answer."""
+"""LLM conversation loop using Anthropic Claude API with tool use."""
 
 import json
 
-from groq import APIStatusError, APIConnectionError
+from anthropic import APIStatusError, APIConnectionError
 
-from pagerduty_sre_bot.clients import groq_client
+from pagerduty_sre_bot.clients import anthropic_client
 from pagerduty_sre_bot.schemas import TOOLS
 from pagerduty_sre_bot.system_prompt import SYSTEM_PROMPT
 from pagerduty_sre_bot.tool_registry import execute_tool
@@ -19,50 +19,92 @@ except ImportError:
     Markdown = None
 
 
-def _msg_to_dict(msg) -> dict:
-    """Convert a Groq ChatCompletionMessage (Pydantic) to a plain dict."""
-    d: dict = {"role": msg.role}
-    if msg.content is not None:
-        d["content"] = msg.content
-    if getattr(msg, "tool_calls", None):
-        d["tool_calls"] = [
-            {
-                "id": tc.id,
-                "type": "function",
-                "function": {
-                    "name": tc.function.name,
-                    "arguments": tc.function.arguments,
-                },
-            }
-            for tc in msg.tool_calls
-        ]
-    return d
+# ── Schema Converter ──────────────────────────────────
+# Our schemas.py uses OpenAI/Groq format. Anthropic needs a different shape.
+
+def _convert_tools_to_anthropic(tools: list[dict]) -> list[dict]:
+    """
+    Convert OpenAI-style tool schemas to Anthropic format.
+
+    OpenAI:  {"type":"function","function":{"name":"x","description":"y","parameters":{...}}}
+    Anthropic: {"name":"x","description":"y","input_schema":{...}}
+    """
+    converted = []
+    for t in tools:
+        fn = t.get("function", {})
+        converted.append({
+            "name": fn["name"],
+            "description": fn.get("description", ""),
+            "input_schema": fn.get("parameters", {"type": "object", "properties": {}}),
+        })
+    return converted
 
 
-def _call_llm(
+# ── LLM Call ──────────────────────────────────────────
+
+def _call_claude(
+        system: str,
         messages: list,
-        use_tools: bool = True,
-        stream: bool = False,
-        model: str | None = None,
+        model: str,
         fallback_model: str | None = None,
         tools: list | None = None,
+        max_tokens: int = 4096,
 ):
-    """Call Groq with optional tool subset and streaming. Falls back on failure."""
-    kwargs = dict(model=model, messages=messages, max_tokens=4096)
-    if use_tools:
-        kwargs["tools"] = tools if tools is not None else TOOLS
-        kwargs["tool_choice"] = "auto"
-    if stream:
-        kwargs["stream"] = True
+    """
+    Call Anthropic Claude API with tool use.
+    Falls back to fallback_model on failure.
+    """
+    kwargs = dict(
+        model=model,
+        system=system,
+        messages=messages,
+        max_tokens=max_tokens,
+    )
+    if tools:
+        kwargs["tools"] = tools
+        kwargs["tool_choice"] = {"type": "auto"}
 
     try:
-        return groq_client.chat.completions.create(**kwargs)
+        return anthropic_client.messages.create(**kwargs)
     except (APIStatusError, APIConnectionError) as e:
         if fallback_model and model != fallback_model:
             cprint(f"[yellow]⚠  Primary model failed ({e}), falling back to {fallback_model}…[/yellow]")
             kwargs["model"] = fallback_model
-            return groq_client.chat.completions.create(**kwargs)
+            return anthropic_client.messages.create(**kwargs)
         raise
+
+
+def _extract_text(response) -> str:
+    """Extract all text content from a Claude response."""
+    parts = []
+    for block in response.content:
+        if block.type == "text":
+            parts.append(block.text)
+    return "\n".join(parts)
+
+
+def _has_tool_use(response) -> bool:
+    """Check if the response contains any tool_use blocks."""
+    return any(block.type == "tool_use" for block in response.content)
+
+
+def _response_to_assistant_message(response) -> dict:
+    """
+    Convert Claude response to a message dict for the conversation history.
+    Preserves both text and tool_use blocks.
+    """
+    content = []
+    for block in response.content:
+        if block.type == "text":
+            content.append({"type": "text", "text": block.text})
+        elif block.type == "tool_use":
+            content.append({
+                "type": "tool_use",
+                "id": block.id,
+                "name": block.name,
+                "input": block.input,
+            })
+    return {"role": "assistant", "content": content}
 
 
 def run_conversation(
@@ -72,7 +114,7 @@ def run_conversation(
         dry_run: bool = False,
 ) -> tuple[str, list]:
     """
-    Run one conversation turn.
+    Run one conversation turn using Claude.
     Returns (answer_text, updated_history).
     """
     # Propagate dry_run to all tool modules that have destructive operations
@@ -97,10 +139,13 @@ def run_conversation(
         dry_run_status="ENABLED" if dry_run else "disabled",
     )
 
-    messages = [{"role": "system", "content": system}] + conversation_history
+    # Build messages — Claude uses system separately, not as a message
+    messages = list(conversation_history)
     messages.append({"role": "user", "content": user_query})
 
-    active_tools = select_tools_for_query(user_query)
+    # Select and convert tools for this query
+    active_tools_openai = select_tools_for_query(user_query)
+    active_tools = _convert_tools_to_anthropic(active_tools_openai)
 
     rounds = 0
     answer = ""
@@ -108,35 +153,40 @@ def run_conversation(
     while rounds < 10:
         rounds += 1
 
-        response = _call_llm(
-            messages, use_tools=True, stream=False,
-            model=model_primary, fallback_model=model_fallback,
+        response = _call_claude(
+            system=system,
+            messages=messages,
+            model=model_primary,
+            fallback_model=model_fallback,
             tools=active_tools,
         )
-        msg = response.choices[0].message
 
-        if not msg.tool_calls:
-            # Final answer
-            messages.append({"role": "assistant", "content": msg.content or ""})
+        if not _has_tool_use(response):
+            # Final answer — no more tool calls
+            answer = _extract_text(response)
+            messages.append({"role": "assistant", "content": answer})
+
             cprint("\n[bold blue]🤖 Assistant:[/bold blue]")
-            if msg.content:
+            if answer:
                 if RICH_AVAILABLE and Markdown:
-                    console.print(Markdown(msg.content))
+                    console.print(Markdown(answer))
                 else:
-                    print(msg.content)
-            answer = msg.content or ""
+                    print(answer)
             break
 
-        # Process tool calls
-        messages.append(_msg_to_dict(msg))
+        # ── Process tool calls ──────────────────────────
+        # Add the full assistant response (with tool_use blocks) to messages
+        messages.append(_response_to_assistant_message(response))
 
-        for tc in msg.tool_calls:
-            fn_name = tc.function.name
-            try:
-                fn_args = json.loads(tc.function.arguments)
-            except (json.JSONDecodeError, TypeError) as e:
-                cprint(f"[red]⚠  Could not parse args for {fn_name}: {e}[/red]")
-                fn_args = {}
+        # Collect all tool results into a single user message
+        tool_results = []
+        for block in response.content:
+            if block.type != "tool_use":
+                continue
+
+            fn_name = block.name
+            fn_args = block.input or {}
+            tool_use_id = block.id
 
             preview = json.dumps(fn_args, default=str)[:120]
             cprint(f"  [cyan]⚙  {fn_name}[/cyan]([dim]{preview}…[/dim])")
@@ -144,16 +194,22 @@ def run_conversation(
             result = execute_tool(fn_name, fn_args)
             result_str = json.dumps(result, indent=2, default=str)
 
+            # Truncate very large results
             if len(result_str) > 28000:
                 result_str = result_str[:28000] + "\n…[result truncated to fit context]"
 
-            messages.append({
-                "role": "tool",
-                "tool_call_id": tc.id,
+            tool_results.append({
+                "type": "tool_result",
+                "tool_use_id": tool_use_id,
                 "content": result_str,
             })
+
+        # Anthropic requires tool results as a user message
+        messages.append({"role": "user", "content": tool_results})
+
     else:
         answer = "I reached the maximum tool-call rounds. Please try a more specific question."
 
-    updated_history = sanitize_history(messages[1:])
+    # Sanitize for persistence: keep only user text + assistant text
+    updated_history = sanitize_history(messages)
     return answer, updated_history

@@ -3,7 +3,7 @@
 import time
 from functools import wraps
 
-from groq import APIStatusError, APIConnectionError, RateLimitError
+from anthropic import APIConnectionError, APIStatusError, RateLimitError
 
 from pagerduty_sre_bot.output import cprint
 
@@ -33,6 +33,11 @@ def with_retry(max_retries: int = 3, base_delay: float = 1.0):
                         last_exc = e
                         delay = base_delay * (2 ** attempt)
                         cprint(f"[yellow]⚠  Rate-limited (429), retrying in {delay:.1f}s…[/yellow]")
+                        time.sleep(delay)
+                    elif e.status_code == 529:  # Anthropic overloaded
+                        last_exc = e
+                        delay = base_delay * (2 ** attempt) * 2
+                        cprint(f"[yellow]⚠  API overloaded (529), retrying in {delay:.1f}s…[/yellow]")
                         time.sleep(delay)
                     else:
                         raise
