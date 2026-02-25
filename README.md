@@ -90,7 +90,7 @@ cd pagerduty-sre-bot
 Or if you already have the files:
 
 ```bash
-cd ~/Desktop/PD_AI_Final
+cd ~/Desktop/PD_AI
 ```
 
 ### Step 2: Verify Folder Structure
@@ -98,7 +98,7 @@ cd ~/Desktop/PD_AI_Final
 Your project **must** look like this. The `pagerduty_sre_bot/` folder is the Python package — all `.py` files go inside it, not at the root.
 
 ```
-PD_AI_Final/                    ← project root (you run commands from here)
+PD_AI/                    ← project root (you run commands from here)
 ├── pyproject.toml
 ├── README.md
 ├── .env                        ← your API keys (you create this)
@@ -234,7 +234,7 @@ python -m pagerduty_sre_bot --monitor --dry-run
 - [ ] Virtual environment created and activated
 - [ ] `pip install -e .` ran successfully
 - [ ] `.env` file created at project root with both API keys
-- [ ] Running from project root: `cd ~/Desktop/PD_AI_Final && python -m pagerduty_sre_bot`
+- [ ] Running from project root: `cd ~/Desktop/PD_AI && python -m pagerduty_sre_bot`
 - [ ] First query returned real data
 
 ---
@@ -405,7 +405,7 @@ dry_run: false                # Global dry-run toggle
 
 ```bash
 # Always run from the project root (where .env and pyproject.toml are)
-cd ~/Desktop/PD_AI_Final
+cd ~/Desktop/PD_AI
 
 # Standard mode
 python -m pagerduty_sre_bot
@@ -802,7 +802,7 @@ _KEYWORD_RULES = [
 
 ### Key Rules
 
-1. **Always run from the project root** (where `.env` lives): `cd ~/Desktop/PD_AI_Final`
+1. **Always run from the project root** (where `.env` lives): `cd ~/Desktop/PD_AI`
 2. **Always use `python -m pagerduty_sre_bot`** — not `python __main__.py`
 3. **After editing files**, no reinstall needed if you used `pip install -e .`
 4. **Use `status` command** in the chat to verify config, cache, and history
