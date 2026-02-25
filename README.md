@@ -1,7 +1,7 @@
 # 🚀 PagerDuty SRE AI Assistant
 
 > **A full-featured, AI-powered command-line assistant for PagerDuty operations.**
-> Powered by [Groq](https://groq.com/) LLM inference + PagerDuty REST API v2 + Events API v2.
+> Powered by [Anthropic Claude](https://www.anthropic.com/) + PagerDuty REST API v2 + Events API v2.
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
@@ -133,7 +133,7 @@ pip install -e .
 ```
 
 This installs the package in editable mode plus all dependencies:
-- `groq` — LLM inference
+- `anthropic` — Claude LLM (tool use + generation)
 - `pagerduty` — REST API v2 client
 - `httpx` — Events API v2 client
 - `python-dotenv` — `.env` file loading
@@ -145,11 +145,11 @@ This installs the package in editable mode plus all dependencies:
 
 You need **two** API keys:
 
-#### Groq API Key (free)
-1. Go to [console.groq.com](https://console.groq.com)
+#### Anthropic API Key
+1. Go to [console.anthropic.com](https://console.anthropic.com)
 2. Sign up / log in
-3. Navigate to **API Keys** → **Create API Key**
-4. Copy the key (starts with `gsk_`)
+3. Navigate to **API Keys** → **Create Key**
+4. Copy the key (starts with `sk-ant-`)
 
 #### PagerDuty API Key
 1. Log in to your PagerDuty account
@@ -167,7 +167,7 @@ In the **project root** (same folder as `pyproject.toml`):
 
 ```bash
 cat > .env << 'EOF'
-GROQ_API_KEY=gsk_paste_your_groq_key_here
+ANTHROPIC_API_KEY=sk-ant-paste_your_key_here
 PAGERDUTY_API_KEY=paste_your_pagerduty_key_here
 PAGERDUTY_EMAIL=your.email@company.com
 EOF
@@ -191,7 +191,7 @@ You should see:
 ```
 🚀 PagerDuty Full-Feature SRE AI Assistant — Enhanced Edition
 ──────────────────────────────────────────────────────────────
-  Model   : moonshotai/kimi-k2-instruct-0905 (fallback: llama-3.3-70b-versatile)
+  Model   : claude-sonnet-4-20250514 (fallback: claude-haiku-4-5-20251001)
   Dry-run : disabled
   Monitor : off
   Config  : config.yml
@@ -268,8 +268,8 @@ python -m pagerduty_sre_bot --monitor --dry-run
         │                      │
         ▼                      ▼
 ┌───────────────┐    ┌─────────────────────────────────────┐
-│   Groq API    │    │        tool_registry.py             │
-│  (LLM Inf.)  │    │  Maps 105+ tool names → functions   │
+│  Claude API   │    │        tool_registry.py             │
+│  (Anthropic)  │    │  Maps 105+ tool names → functions   │
 └───────────────┘    └──────────────┬──────────────────────┘
                                     │
                      ┌──────────────┼──────────────┐
@@ -355,7 +355,7 @@ pagerduty-sre-bot/
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `GROQ_API_KEY` | **Yes** | Groq API key (starts with `gsk_`) |
+| `ANTHROPIC_API_KEY` | **Yes** | Anthropic API key (starts with `sk-ant-`) |
 | `PAGERDUTY_API_KEY` | **Yes** | PagerDuty API token |
 | `PAGERDUTY_EMAIL` | For writes* | Email of PD user (needed for account-level API keys) |
 | `DRY_RUN` | No | Set to `true` to enable dry-run via environment |
@@ -368,8 +368,8 @@ Auto-created on first run with sensible defaults. Full reference:
 
 ```yaml
 model:
-  primary: moonshotai/kimi-k2-instruct-0905    # Primary LLM model on Groq
-  fallback: llama-3.3-70b-versatile             # Fallback if primary fails
+  primary: claude-sonnet-4-20250514             # Primary Claude model
+  fallback: claude-haiku-4-5-20251001           # Faster/cheaper fallback
 
 defaults:
   time_window_hours: 24       # Default lookback for queries
@@ -792,7 +792,7 @@ _KEYWORD_RULES = [
 | Error | Cause | Fix |
 |-------|-------|-----|
 | `ModuleNotFoundError: No module named 'pagerduty_sre_bot'` | Running from wrong directory or not installed | `cd` to project root, run `pip install -e .`, then `python -m pagerduty_sre_bot` |
-| `ValueError: Missing required API keys` | `.env` not found or missing keys | Create `.env` at project root (same folder as `pyproject.toml`) with both keys |
+| `ValueError: Missing required API keys` | `.env` not found or missing keys | Create `.env` at project root with `ANTHROPIC_API_KEY` and `PAGERDUTY_API_KEY` |
 | `ImportError: cannot import name 'xyz'` | File has old version without new functions | Replace file content with latest version from the artifacts |
 | `SyntaxError` in a `.py` file | Shell commands or markers pasted into Python file | Open file and ensure it contains only Python code, no `cat >`, `PYEOF`, etc. |
 | `HTTP 400` on write operations | Missing `PAGERDUTY_EMAIL` | Add `PAGERDUTY_EMAIL=you@company.com` to `.env` |
